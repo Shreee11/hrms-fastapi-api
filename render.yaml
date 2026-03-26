@@ -2,6 +2,7 @@ services:
   - type: web
     name: hrms-fastapi-api
     runtime: python
+    pythonVersion: "3.12.7"
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn -k uvicorn.workers.UvicornWorker app.main:app"
     envVars:
