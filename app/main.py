@@ -29,9 +29,14 @@ cors_origins = os.environ.get(
     "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
 ).split(",")
 
+cors_origin_regex = os.environ.get(
+    "CORS_ORIGIN_REGEX", r"https://hrms-lite.*\.vercel\.app"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

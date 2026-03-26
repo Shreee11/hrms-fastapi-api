@@ -11,3 +11,5 @@ services:
         value: hrms_fastapi
       - key: CORS_ALLOWED_ORIGINS
         value: https://hrms-lite-bay.vercel.app
+      - key: CORS_ORIGIN_REGEX
+        value: "https://hrms-lite.*\.vercel\.app"
