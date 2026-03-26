@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: hrms-fastapi-api
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn -k uvicorn.workers.UvicornWorker app.main:app"
+    envVars:
+      - key: MONGODB_URL
+        sync: false          # set manually in Render dashboard
+      - key: DATABASE_NAME
+        value: hrms_fastapi
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://hrms-lite.vercel.app

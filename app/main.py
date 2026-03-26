@@ -1,0 +1,47 @@
+import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+from .database import connect_db, close_db
+from .routers import employees, attendance
+
+load_dotenv()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_db()
+    yield
+    await close_db()
+
+
+app = FastAPI(
+    title="HRMS Lite API",
+    description="Human Resource Management System REST API built with FastAPI and MongoDB",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS
+cors_origins = os.environ.get(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+).split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Routes
+app.include_router(employees.router, prefix="/api")
+app.include_router(attendance.router, prefix="/api")
+
+
+@app.get("/")
+def root():
+    return {"message": "HRMS Lite API is running"}
