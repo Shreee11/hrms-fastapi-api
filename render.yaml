@@ -10,4 +10,4 @@ services:
       - key: DATABASE_NAME
         value: hrms_fastapi
       - key: CORS_ALLOWED_ORIGINS
-        value: https://hrms-lite.vercel.app
+        value: https://hrms-lite-bay.vercel.app
