@@ -5,6 +5,7 @@ from bson import ObjectId
 from typing import Optional
 
 from ..database import get_db
+from ..dependencies import get_current_user
 from ..schemas import AttendanceCreate, AttendanceUpdate, AttendanceOut
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -119,3 +120,98 @@ async def delete_attendance(attendance_id: str, db: AsyncIOMotorDatabase = Depen
     record = await _get_attendance_or_404(attendance_id, db)
     await db.attendance.delete_one({"_id": record["_id"]})
     return {"message": "Attendance record deleted successfully."}
+
+
+# ── Self-service clock-in / clock-out ────────────────────────────────────────
+
+@router.get("/my/today")
+async def my_today(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    emp = await db.employees.find_one({"email": current_user["email"]})
+    if not emp:
+        return {"status": "no_employee", "clock_in": None, "clock_out": None, "attendance_id": None}
+    today = date_type.today().isoformat()
+    record = await db.attendance.find_one({"employee_id": emp["_id"], "date": today})
+    if not record:
+        return {"status": "not_clocked_in", "clock_in": None, "clock_out": None, "attendance_id": None}
+    status_val = "clocked_out" if record.get("clock_out") else "clocked_in"
+    return {
+        "status": status_val,
+        "clock_in": record.get("clock_in"),
+        "clock_out": record.get("clock_out"),
+        "attendance_id": str(record["_id"]),
+    }
+
+
+@router.post("/my/clock-in")
+async def clock_in(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    emp = await db.employees.find_one({"email": current_user["email"]})
+    if not emp:
+        raise HTTPException(status_code=400, detail="No employee record linked to your account.")
+    today = date_type.today().isoformat()
+    if await db.attendance.find_one({"employee_id": emp["_id"], "date": today}):
+        raise HTTPException(status_code=400, detail="Already clocked in today.")
+    now = datetime.now(timezone.utc)
+    await db.attendance.insert_one({
+        "employee_id": emp["_id"],
+        "date": today,
+        "status": "Present",
+        "clock_in": now,
+        "clock_out": None,
+        "created_at": now,
+    })
+    return {"message": "Clocked in successfully", "clock_in": now}
+
+
+@router.post("/my/clock-out")
+async def clock_out(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    emp = await db.employees.find_one({"email": current_user["email"]})
+    if not emp:
+        raise HTTPException(status_code=400, detail="No employee record linked to your account.")
+    today = date_type.today().isoformat()
+    record = await db.attendance.find_one({"employee_id": emp["_id"], "date": today})
+    if not record:
+        raise HTTPException(status_code=400, detail="You have not clocked in today.")
+    if record.get("clock_out"):
+        raise HTTPException(status_code=400, detail="Already clocked out today.")
+    now = datetime.now(timezone.utc)
+    await db.attendance.update_one(
+        {"_id": record["_id"]},
+        {"$set": {"clock_out": now}},
+    )
+    return {"message": "Clocked out successfully", "clock_out": now}
+
+
+@router.get("/my/history")
+async def my_history(
+    month: Optional[int] = Query(None),
+    year: Optional[int] = Query(None),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    emp = await db.employees.find_one({"email": current_user["email"]})
+    if not emp:
+        return []
+    query = {"employee_id": emp["_id"]}
+    if month and year:
+        prefix = f"{year}-{str(month).zfill(2)}"
+        query["date"] = {"$regex": f"^{prefix}"}
+    records = await db.attendance.find(query).sort("date", 1).to_list(length=None)
+    return [
+        {
+            "id": str(r["_id"]),
+            "date": r["date"],
+            "status": r["status"],
+            "clock_in": r.get("clock_in"),
+            "clock_out": r.get("clock_out"),
+        }
+        for r in records
+    ]

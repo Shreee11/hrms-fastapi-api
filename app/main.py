@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from .database import connect_db, close_db
-from .routers import employees, attendance
+from .routers import employees, attendance, auth, departments, leave, payroll, reports, onboarding, documents, holidays
 
 load_dotenv()
 
@@ -18,9 +18,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="HRMS Lite API",
+    title="HRMS API",
     description="Human Resource Management System REST API built with FastAPI and MongoDB",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -43,10 +43,18 @@ app.add_middleware(
 )
 
 # Routes
+app.include_router(auth.router, prefix="/api")
 app.include_router(employees.router, prefix="/api")
 app.include_router(attendance.router, prefix="/api")
+app.include_router(departments.router, prefix="/api")
+app.include_router(leave.router, prefix="/api")
+app.include_router(payroll.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
+app.include_router(onboarding.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
+app.include_router(holidays.router, prefix="/api")
 
 
 @app.get("/")
 def root():
-    return {"message": "HRMS Lite API is running"}
+    return {"message": "HRMS API v2.0 is running"}
